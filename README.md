@@ -34,7 +34,7 @@ amount of new particles will give a new array of resampled particles. In additio
 we can also apply a weight threshold to eliminate 
 
 How will you update the estimated pose of the robot (update_estimated_robot_pose)
-?
+
 - We could implement a naive clustering algorithm in which we divide the map 
 into a grid and then we take the most dense grid and find the average position/
 orientation of all particles within that grid.
