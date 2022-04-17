@@ -74,7 +74,7 @@ class ParticleFilter:
         self.map = OccupancyGrid()
 
         # the number of particles used in the particle filter
-        self.num_particles = 2
+        self.num_particles = 10000
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -136,6 +136,7 @@ class ParticleFilter:
             y = (height * random_sample()) + y_origin
             # Get Random Orientation
             z_angular = (2 * np.pi) * random_sample()
+
             
             # Intialize Object
             p = Pose()
@@ -287,21 +288,28 @@ class ParticleFilter:
         x_estimate = 0
         y_estimate = 0
         z_angular_estimate = 0
+
+        sin_total = 0
+        cos_total = 0
         
         #go through the particle cloud and take avgs of x, y, and z angular
         for particle in self.particle_cloud:
             x_estimate += particle.pose.position.x
             y_estimate += particle.pose.position.y
             yaw = get_yaw_from_pose(particle.pose)
-            if yaw < (-np.pi/2):
+            if yaw < 0:
                 yaw += (np.pi * 2)
+            sin_total += math.sin(yaw)
+            cos_total += math.cos(yaw)
             # print(f"at {x_estimate}, {y_estimate} => yaw: {yaw}")
-            z_angular_estimate += yaw
+            
 
         x_estimate = x_estimate / len(self.particle_cloud)
         y_estimate = y_estimate / len(self.particle_cloud)
-        z_angular_estimate = z_angular_estimate / len(self.particle_cloud)
-    
+        z_angular_estimate = math.atan2(sin_total / len(self.particle_cloud),
+            cos_total / len(self.particle_cloud))
+        
+
         # print(f"Z-estimate: {z_angular_estimate}")
 
         pos = Point(x_estimate, y_estimate, 0)
