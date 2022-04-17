@@ -33,12 +33,11 @@ def get_yaw_from_pose(p):
     return yaw
 
 
-def draw_random_sample(weights):
+def draw_random_sample():
     """ Draws a random sample of n elements from a given list of choices and their specified probabilities.
     We recommend that you fill in this function using random_sample.
     """
-    resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=weights)
-    return resample
+    return
 
 
 class Particle:
@@ -204,8 +203,9 @@ class ParticleFilter:
 
     def resample_particles(self):
 
-        # TODO
-        pass
+        resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=self.particle_cloud.w)
+        return resample
+        
 
 
 
