@@ -74,7 +74,7 @@ class ParticleFilter:
         self.map = OccupancyGrid()
 
         # the number of particles used in the particle filter
-        self.num_particles = 10000
+        self.num_particles = 2
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -173,9 +173,7 @@ class ParticleFilter:
         
         #go through particles and normalize weights
         for particle in self.particle_cloud:
-            weight = particle.w / total_weights
-
-
+            particle.w = particle.w / total_weights
 
 
     def publish_particle_cloud(self):
@@ -190,8 +188,6 @@ class ParticleFilter:
         self.particles_pub.publish(particle_cloud_pose_array)
 
 
-
-
     def publish_estimated_robot_pose(self):
 
         robot_pose_estimate_stamped = PoseStamped()
@@ -202,8 +198,11 @@ class ParticleFilter:
 
 
     def resample_particles(self):
+        weights = []
+        for p in self.particle_cloud:
+            weights.append(p.w)
 
-        resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=self.particle_cloud.w)
+        resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=weights)
         return resample
         
 
@@ -284,9 +283,33 @@ class ParticleFilter:
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
         
-        # TODO
-        hello = 0
+        # self.robot_estimate
+        x_estimate = 0
+        y_estimate = 0
+        z_angular_estimate = 0
+        
+        #go through the particle cloud and take avgs of x, y, and z angular
+        for particle in self.particle_cloud:
+            x_estimate += particle.pose.position.x
+            y_estimate += particle.pose.position.y
+            yaw = get_yaw_from_pose(particle.pose)
+            if yaw < (-np.pi/2):
+                yaw += (np.pi * 2)
+            # print(f"at {x_estimate}, {y_estimate} => yaw: {yaw}")
+            z_angular_estimate += yaw
 
+        x_estimate = x_estimate / len(self.particle_cloud)
+        y_estimate = y_estimate / len(self.particle_cloud)
+        z_angular_estimate = z_angular_estimate / len(self.particle_cloud)
+    
+        # print(f"Z-estimate: {z_angular_estimate}")
+
+        pos = Point(x_estimate, y_estimate, 0)
+        q = quaternion_from_euler(0.0, 0.0, z_angular_estimate)
+        ori = Quaternion(q[0], q[1], q[2], q[3])
+        
+        
+        self.robot_estimate = Pose(pos, ori)
 
     
     def update_particle_weights_with_measurement_model(self, data):
