@@ -33,12 +33,12 @@ def get_yaw_from_pose(p):
     return yaw
 
 
-def draw_random_sample():
+def draw_random_sample(weights):
     """ Draws a random sample of n elements from a given list of choices and their specified probabilities.
     We recommend that you fill in this function using random_sample.
     """
-    # TODO
-    return
+    resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=weights)
+    return resample
 
 
 class Particle:
@@ -108,6 +108,8 @@ class ParticleFilter:
         self.tf_listener = TransformListener()
         self.tf_broadcaster = TransformBroadcaster()
 
+        # Let Map Subscribe
+        rospy.sleep(5)
 
         # intialize the particle cloud
         self.initialize_particle_cloud()
@@ -122,19 +124,58 @@ class ParticleFilter:
     
 
     def initialize_particle_cloud(self):
-        
-        # TODO
+        width = self.map.info.width * self.map.info.resolution
+        height = self.map.info.height * self.map.info.resolution
+        x_origin = self.map.info.origin.position.x
+        y_origin = self.map.info.origin.position.y
+        print(f"{width}, {height}")
+        print(f"{x_origin}, {y_origin}")
+        print(self.map.info.resolution)
+        for i in range(self.num_particles):
+            # Get Random Position
+            x = (width * random_sample()) + x_origin
+            y = (height * random_sample()) + y_origin
+            # Get Random Orientation
+            z_angular = (2 * np.pi) * random_sample()
+            
+            # Intialize Object
+            p = Pose()
+            p.position = Point()
+            p.position.x = x
+            p.position.y = y
+            p.position.z = 0
+            p.orientation = Quaternion()
+            q = quaternion_from_euler(0.0, 0.0, z_angular)
+            p.orientation.x = q[0]
+            p.orientation.y = q[1]
+            p.orientation.z = q[2]
+            p.orientation.w = q[3]
+            
+            # initialize the new particle, where all will have the same weight (1.0)
+            new_particle = Particle(p, 1.0)
 
+            # append the particle to the particle cloud
+            self.particle_cloud.append(new_particle)
 
         self.normalize_particles()
 
         self.publish_particle_cloud()
+        print(self.particle_cloud[0].pose.position.x, self.particle_cloud[0].pose.position.y)
 
 
     def normalize_particles(self):
         # make all the particle weights sum to 1.0
         
-        # TODO
+        #get total weights
+        total_weights = 0
+        for particle in self.particle_cloud:
+            weight = particle.w
+            total_weights += weight
+        
+        #go through particles and normalize weights
+        for particle in self.particle_cloud:
+            weight = particle.w / total_weights
+
 
 
 
@@ -164,6 +205,7 @@ class ParticleFilter:
     def resample_particles(self):
 
         # TODO
+        pass
 
 
 
@@ -243,12 +285,14 @@ class ParticleFilter:
         # based on the particles within the particle cloud, update the robot pose estimate
         
         # TODO
+        hello = 0
 
 
     
     def update_particle_weights_with_measurement_model(self, data):
 
         # TODO
+        pass
 
 
         
@@ -260,7 +304,7 @@ class ParticleFilter:
 
         # TODO
 
-
+        hel = 0
 
 if __name__=="__main__":
     
