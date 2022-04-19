@@ -17,8 +17,7 @@ from numpy.random import random_sample
 import math
 
 from random import randint, random
-
-
+from likelihood_field import LikelihoodField
 
 def get_yaw_from_pose(p):
     """ A helper function that takes in a Pose object (geometry_msgs) and returns yaw"""
@@ -38,6 +37,13 @@ def draw_random_sample():
     We recommend that you fill in this function using random_sample.
     """
     return
+
+def compute_prob_zero_centered_gaussian(dist, sd):
+    """ Takes in distance from zero (dist) and standard deviation (sd) for gaussian
+        and returns probability (likelihood) of observation """
+    c = 1.0 / (sd * math.sqrt(2 * math.pi))
+    prob = c * math.exp((-math.pow(dist,2))/(2 * math.pow(sd, 2)))
+    return prob
 
 
 class Particle:
@@ -74,7 +80,7 @@ class ParticleFilter:
         self.map = OccupancyGrid()
 
         # the number of particles used in the particle filter
-        self.num_particles = 10000
+        self.num_particles = 2
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -107,18 +113,19 @@ class ParticleFilter:
         self.tf_listener = TransformListener()
         self.tf_broadcaster = TransformBroadcaster()
 
+        #initialize likelihood field
+        self.likelihood_field = LikelihoodField()
+
         # Let Map Subscribe
         rospy.sleep(5)
 
         # intialize the particle cloud
         self.initialize_particle_cloud()
-
         self.initialized = True
 
 
 
     def get_map(self, data):
-
         self.map = data
     
 
@@ -127,9 +134,9 @@ class ParticleFilter:
         height = self.map.info.height * self.map.info.resolution
         x_origin = self.map.info.origin.position.x
         y_origin = self.map.info.origin.position.y
-        print(f"{width}, {height}")
-        print(f"{x_origin}, {y_origin}")
-        print(self.map.info.resolution)
+        #print(f"{width}, {height}")
+        #print(f"{x_origin}, {y_origin}")
+        #print(self.map.info.resolution)
         for i in range(self.num_particles):
             # Get Random Position
             x = (width * random_sample()) + x_origin
@@ -160,7 +167,7 @@ class ParticleFilter:
         self.normalize_particles()
 
         self.publish_particle_cloud()
-        print(self.particle_cloud[0].pose.position.x, self.particle_cloud[0].pose.position.y)
+        #print(self.particle_cloud[0].pose.position.x, self.particle_cloud[0].pose.position.y)
 
 
     def normalize_particles(self):
@@ -171,10 +178,18 @@ class ParticleFilter:
         for particle in self.particle_cloud:
             weight = particle.w
             total_weights += weight
+        #print(f"Total WEights: {total_weights}")
         
+        sm = 0
         #go through particles and normalize weights
-        for particle in self.particle_cloud:
-            particle.w = particle.w / total_weights
+        for i, particle in enumerate(self.particle_cloud):
+            #print("working on particle:", particle)
+            #print("Particle weight before: ", self.particle_cloud[i].w)
+            self.particle_cloud[i].w /= total_weights
+            #print("Particle weight after: ", self.particle_cloud[i].w)
+            sm += self.particle_cloud[i].w
+        
+        #print("resample sum:", sm)
 
 
     def publish_particle_cloud(self):
@@ -200,11 +215,16 @@ class ParticleFilter:
 
     def resample_particles(self):
         weights = []
+        #print("particle cloud before:", self.particle_cloud)
         for p in self.particle_cloud:
             weights.append(p.w)
+        #print(f"weights: {weights} = {sum(weights)}")
 
         resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=weights)
-        return resample
+        for i, par in enumerate(resample):
+            resample[i] = Particle(par.pose, par.w)
+        self.particle_cloud = resample
+        #print("particle cloud after:", self.particle_cloud)
         
 
 
@@ -247,7 +267,7 @@ class ParticleFilter:
             return
 
 
-        if self.particle_cloud:
+        if len(self.particle_cloud) > 0:
 
             # check to see if we've moved far enough to perform an update
 
@@ -283,7 +303,7 @@ class ParticleFilter:
 
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
-        
+        # print("in update robot pose")
         # self.robot_estimate
         x_estimate = 0
         y_estimate = 0
@@ -321,21 +341,91 @@ class ParticleFilter:
 
     
     def update_particle_weights_with_measurement_model(self, data):
+        
+        # print("in measurement model")
+        z = data.ranges
+        #z = [0, 90, ]
 
-        # TODO
-        pass
+        for i, particle in enumerate(self.particle_cloud):
+            q = 1
+            x = particle.pose.position.x
+            y = particle.pose.position.y
 
+            theta = get_yaw_from_pose(particle.pose)
+            
+            #print(particle)
 
+            ztks = []
+            dists = []
+            probs = []
+
+            for idx in range(len(z)):
+                ztk = data.ranges[idx]
+                print("ztk:", ztk)
+                #print("type is ", type(ztk))
+                if ztk < data.range_max: #may change to not equal instead
+                    print("in cond")
+                    ztks.append(idx)
+                    rad_idx = math.radians(idx)
+                    x_z_tk = x + (ztk * math.cos(theta + rad_idx))
+                    y_z_tk = y + (ztk * math.sin(theta + rad_idx))
+                    dist = self.likelihood_field.get_closest_obstacle_distance(x_z_tk,y_z_tk)
+                    dists.append(dist)
+                    probs.append(compute_prob_zero_centered_gaussian(dist, 0.1))
+                    q = q * compute_prob_zero_centered_gaussian(dist, 0.1)
+            
+            self.particle_cloud[i].w = q
         
 
     def update_particles_with_motion_model(self):
 
+        # print("in motion model")
         # based on the how the robot has moved (calculated from its odometry), we'll  move
         # all of the particles correspondingly
 
-        # TODO
+        curr_x = self.odom_pose.pose.position.x
+        old_x = self.odom_pose_last_motion_update.pose.position.x
+        curr_y = self.odom_pose.pose.position.y
+        old_y = self.odom_pose_last_motion_update.pose.position.y
+        curr_yaw = get_yaw_from_pose(self.odom_pose.pose)
+        old_yaw = get_yaw_from_pose(self.odom_pose_last_motion_update.pose)
 
-        hel = 0
+        delta = (curr_x - old_x, curr_y - old_y, curr_yaw - old_yaw)
+
+        delta_rot1 = math.atan2(delta[1], delta[0]) - old_yaw
+        delta_trans = math.sqrt(delta[0]**2 + delta[1]**2)
+        delta_rot2 = delta[2] - delta_rot1
+
+
+        hat_delta_rot1 = delta_rot1 - np.random.normal(0, 0.1) 
+        hat_delta_trans = delta_trans - np.random.normal(0, 0.1) 
+        hat_delta_rot2 = delta_rot2 - np.random.normal(0, 0.1) 
+
+        for i, particle in enumerate(self.particle_cloud):
+            particle_x = particle.pose.position.x
+            particle_y = particle.pose.position.y
+            particle_theta = get_yaw_from_pose(particle.pose)
+            new_x = particle_x + hat_delta_trans * math.cos(particle_theta + hat_delta_rot1)
+            new_y = particle_y + hat_delta_trans * math.sin(particle_theta + hat_delta_rot1)
+            new_theta = particle_theta + hat_delta_rot1 + hat_delta_rot2
+
+            p = Pose()
+            p.position = Point()
+            p.position.x = new_x
+            p.position.y = new_y
+            p.position.z = 0
+            p.orientation = Quaternion()
+            q = quaternion_from_euler(0.0, 0.0, new_theta)
+            p.orientation.x = q[0]
+            p.orientation.y = q[1]
+            p.orientation.z = q[2]
+            p.orientation.w = q[3]
+
+            #update in particle cloud
+            self.particle_cloud[i].pose = p
+
+            #print('particle_cloud:', self.particle_cloud)
+
 
 if __name__=="__main__":
     
