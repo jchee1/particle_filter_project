@@ -80,7 +80,7 @@ class ParticleFilter:
         self.map = OccupancyGrid()
 
         # the number of particles used in the particle filter
-        self.num_particles = 2
+        self.num_particles = 500
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -134,16 +134,19 @@ class ParticleFilter:
         height = self.map.info.height * self.map.info.resolution
         x_origin = self.map.info.origin.position.x
         y_origin = self.map.info.origin.position.y
+        x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
         #print(f"{width}, {height}")
         #print(f"{x_origin}, {y_origin}")
         #print(self.map.info.resolution)
         for i in range(self.num_particles):
             # Get Random Position
-            x = (width * random_sample()) + x_origin
-            y = (height * random_sample()) + y_origin
+            #x = (width * random_sample()) + x_origin
+            x = ((x_bound[1] - x_bound[0]) * random_sample()) + x_bound[0]
+            y = ((y_bound[1] - y_bound[0])  * random_sample()) + y_bound[0]
+
+            #y = (height * random_sample()) + y_origin
             # Get Random Orientation
             z_angular = (2 * np.pi) * random_sample()
-
             
             # Intialize Object
             p = Pose()
@@ -178,7 +181,7 @@ class ParticleFilter:
         for particle in self.particle_cloud:
             weight = particle.w
             total_weights += weight
-        #print(f"Total WEights: {total_weights}")
+        #print(f"Total Weights: {total_weights}")
         
         sm = 0
         #go through particles and normalize weights
@@ -346,6 +349,10 @@ class ParticleFilter:
         z = data.ranges
         #z = [0, 90, ]
 
+        x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
+        # print("x bound: ", x_bound)
+        # print("y bound: ", y_bound)
+
         for i, particle in enumerate(self.particle_cloud):
             q = 1
             x = particle.pose.position.x
@@ -359,12 +366,19 @@ class ParticleFilter:
             dists = []
             probs = []
 
-            for idx in range(len(z)):
+            angles = [0, 44, 89, 134, 179, 224, 269, 314]
+
+            if x < x_bound[0] or x > x_bound[1] or y < y_bound[0] or y > y_bound[1]:
+                # print(f"setting weight to 0")
+                self.particle_cloud[i].w = 0
+                continue
+
+            for idx in angles:
                 ztk = data.ranges[idx]
-                print("ztk:", ztk)
+                # print("ztk:", ztk)
                 #print("type is ", type(ztk))
-                if ztk < data.range_max: #may change to not equal instead
-                    print("in cond")
+                if (ztk <= data.range_max) and (ztk > 0): #may change to not equal instead
+                    # print("in cond")
                     ztks.append(idx)
                     rad_idx = math.radians(idx)
                     x_z_tk = x + (ztk * math.cos(theta + rad_idx))
@@ -396,12 +410,11 @@ class ParticleFilter:
         delta_trans = math.sqrt(delta[0]**2 + delta[1]**2)
         delta_rot2 = delta[2] - delta_rot1
 
-
-        hat_delta_rot1 = delta_rot1 - np.random.normal(0, 0.1) 
-        hat_delta_trans = delta_trans - np.random.normal(0, 0.1) 
-        hat_delta_rot2 = delta_rot2 - np.random.normal(0, 0.1) 
-
         for i, particle in enumerate(self.particle_cloud):
+            hat_delta_rot1 = delta_rot1 - np.random.normal(0, 0.05) 
+            hat_delta_trans = delta_trans - np.random.normal(0, 0.1) 
+            hat_delta_rot2 = delta_rot2 - np.random.normal(0, 0.05) 
+
             particle_x = particle.pose.position.x
             particle_y = particle.pose.position.y
             particle_theta = get_yaw_from_pose(particle.pose)
