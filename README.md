@@ -61,3 +61,12 @@ a tiny fraction of a meter while orientation would be a few degrees.
 ## Particle Filter Pipeline
 
 ## Takeaways and Conclusion
+
+
+## Writeup
+
+- Objectives: The goals of this project is to gain experience with robot localization, specifically the particle filter algorithm. What this means is that we want the turtlebot to determine where it is located with respect to its environemnt. 
+
+- We call the initialize_particle_cloud function within the ParticleFilter class to initialize the particle cloud. In this function, we first want to get the width, height, and origin (x,y) values from our map. We then use these values and the random_sample() function to get a position with random x and y values and to get a random z_angular value for orientation. We initialize a Pose object with this position and orientation. We then create our particle object with this pose, set its weight to 1, and add it to our particle cloud list. After we get our particle cloud list (i.e. gone through the for loop), we normalize the particle weights so it sums to 1 with a helper function (normalize_particles()). In this function, we essentially divide each of the particle's weight by the total weight of all the particles in the particle cloud. Finally, after normalizing the particles, we publish it.
+- We call the update_particles_with_motion_model() function to handle the movement model. In this function, we essentially followed the sample motion model odometry referred in the textbook and from the professor in Slack. The robot in the time interval (t-1, t] rotates in about delta_rot1, translated by delta_trans, and rotates again by delta_rot2. We first get the current and the old x, y, and theta values from the odometry. We then set the delta as the difference between the current and old odometries' x, y, and theta values. We then calculate the delta_rot1, delta_trans, and delta_rot2 using the given formulas in the algorithm. We then account for noise by subtracting each of the deltas with a random sample value which we get by calling the random.normal function with a mean of 0 and a standard deviation of 0.1 for simplicity. For each of the particle, we update the theta by adding delta_rot1 and delta_rot2 to it and the x and y values by adding the delta_trans while multiplying by the cos and sin respecitvely of the particle's theta plus delta_rot1. 
+
