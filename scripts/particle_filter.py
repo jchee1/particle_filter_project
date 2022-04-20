@@ -80,7 +80,7 @@ class ParticleFilter:
         self.map = OccupancyGrid()
 
         # the number of particles used in the particle filter
-        self.num_particles = 500
+        self.num_particles = 250
 
         # initialize the particle cloud array
         self.particle_cloud = []
@@ -115,6 +115,9 @@ class ParticleFilter:
 
         #initialize likelihood field
         self.likelihood_field = LikelihoodField()
+        bounds = self.likelihood_field.get_obstacle_bounding_box()
+        self.x_bound = bounds[0]
+        self.y_bound = bounds[1]
 
         # Let Map Subscribe
         rospy.sleep(5)
@@ -122,7 +125,6 @@ class ParticleFilter:
         # intialize the particle cloud
         self.initialize_particle_cloud()
         self.initialized = True
-
 
 
     def get_map(self, data):
@@ -134,15 +136,15 @@ class ParticleFilter:
         height = self.map.info.height * self.map.info.resolution
         x_origin = self.map.info.origin.position.x
         y_origin = self.map.info.origin.position.y
-        x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
+        #x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
         #print(f"{width}, {height}")
         #print(f"{x_origin}, {y_origin}")
         #print(self.map.info.resolution)
         for i in range(self.num_particles):
             # Get Random Position
             #x = (width * random_sample()) + x_origin
-            x = ((x_bound[1] - x_bound[0]) * random_sample()) + x_bound[0]
-            y = ((y_bound[1] - y_bound[0])  * random_sample()) + y_bound[0]
+            x = ((self.x_bound[1] - self.x_bound[0]) * random_sample()) + self.x_bound[0]
+            y = ((self.y_bound[1] - self.y_bound[0])  * random_sample()) + self.y_bound[0]
 
             #y = (height * random_sample()) + y_origin
             # Get Random Orientation
@@ -349,7 +351,7 @@ class ParticleFilter:
         z = data.ranges
         #z = [0, 90, ]
 
-        x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
+        #x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
         # print("x bound: ", x_bound)
         # print("y bound: ", y_bound)
 
@@ -368,7 +370,7 @@ class ParticleFilter:
 
             angles = [0, 44, 89, 134, 179, 224, 269, 314]
 
-            if x < x_bound[0] or x > x_bound[1] or y < y_bound[0] or y > y_bound[1]:
+            if x < self.x_bound[0] or x > self.x_bound[1] or y < self.y_bound[0] or y > self.y_bound[1]:
                 # print(f"setting weight to 0")
                 self.particle_cloud[i].w = 0
                 continue
