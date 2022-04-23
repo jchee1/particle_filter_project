@@ -1,4 +1,5 @@
-<sdf version='1.7'>
+<?xml version="1.0" encoding="utf-8"?>
+<sdf version='1.4'>
   <world name='default'>
     <!-- A global light source -->
     <include>
