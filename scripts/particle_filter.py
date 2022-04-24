@@ -132,14 +132,7 @@ class ParticleFilter:
     
 
     def initialize_particle_cloud(self):
-        width = self.map.info.width * self.map.info.resolution
-        height = self.map.info.height * self.map.info.resolution
-        x_origin = self.map.info.origin.position.x
-        y_origin = self.map.info.origin.position.y
-        #x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
-        #print(f"{width}, {height}")
-        #print(f"{x_origin}, {y_origin}")
-        #print(self.map.info.resolution)
+
         for i in range(self.num_particles):
             # Get Random Position
             #x = (width * random_sample()) + x_origin
@@ -348,12 +341,6 @@ class ParticleFilter:
     def update_particle_weights_with_measurement_model(self, data):
         
         # print("in measurement model")
-        z = data.ranges
-        #z = [0, 90, ]
-
-        #x_bound, y_bound = self.likelihood_field.get_obstacle_bounding_box()
-        # print("x bound: ", x_bound)
-        # print("y bound: ", y_bound)
 
         for i, particle in enumerate(self.particle_cloud):
             q = 1
