@@ -211,13 +211,7 @@ class ParticleFilter:
         for i, par in enumerate(resample):
             resample[i] = Particle(par.pose, par.w)
         self.particle_cloud = resample
-<<<<<<< Updated upstream
         
-
-=======
-        #print("particle cloud after:", self.particle_cloud)
->>>>>>> Stashed changes
-
 
     def robot_scan_received(self, data):
 
