@@ -69,11 +69,6 @@ What are the main components of your approach?
 ## Demonstration
 ![](https://github.com/jchee1/particle_filter_project/blob/main/gifs/particle_filter_demo.gif)
 
-### This stuff is guidance for the pipeline
-Code location (1-3 sentences): Please describe where in your code you implemented this step of the particle filter localization.
-
-Functions/code description (1-3 sentences per function / portion of code): Describe the structure of your code. For the functions you wrote, describe what each of them does and how they contribute to this step of the particle filter localization.
-
 ## Particle Filter Pipeline
 Our implementation utilizes two python files - likelihood_field.py and 
 particle_filter.py, both of which are contained in the ./scripts folder.
@@ -95,39 +90,109 @@ contained in the cloud. Lastly, the cloud is published using publich_particle_cl
 The ParticleFilter class' update_particles_with_motion_model() function handles 
 our implementation's movement model; within it, we follow the 
 sample_motion_model_odometry pseudocode from the Probablistic Robotics textbook 
-and from the course staff in Slack.
+and from the course staff in Slack. The robot in the time interval (t-1, t] rotates 
+in about delta_rot1, translated by delta_trans, and rotates again by delta_rot2. 
+We first get the current and the old x, y, and theta values from the odometry. 
+We then set the delta as the difference between the current and old odometries' 
+x, y, and theta values. We then calculate the delta_rot1, delta_trans, and 
+delta_rot2 using the given formulas in the algorithm. We then account for noise 
+by subtracting each delta with a random sample from a Gaussian distribution with 
+mean 0 and stdev 0.05 for each rotation, and 0.1 for translation. For each particle, 
+we update theta by adding delta_rot1 and delta_rot2 to it and the x and y values 
+by adding the delta_trans while multiplying by the cos and sin respecitvely of 
+the particle's theta plus delta_rot1. 
 
 ### Step 3: Measurement Model
-
+The ParticleFilter class' update_particle_weights_with_measurement_model() and 
+the LikelihoodField class handle updating particle weights using the measurement 
+model. We readapt the likelihood field methods provided by the course staff. 
+For each particle in the particle cloud, for each 8th of the unit circle, x_ztk 
+and y_ztk are calculated by adding the particle's position to the robot's range 
+finder measurement for that given angle multipled by the cos or sin of the 
+particle's orientation added to the angle being tested. Then, the closest distance 
+to this calculated position is determined using the LikelihoodField class' 
+get_closest_obstacle_distance() method, and the probability of this distance 
+being correct is computed using a Gaussian with mean 0 and stdev 0.1. It is 
+important to note that each particle starts with a weight of 1, and this weight 
+is multiplied by the computed probability. Should the particle be outside of the 
+map, the weight is automatically set to zero. After all angles are accounted for, 
+the particle's weight is set to the running total.
 
 ### Step 4: Resampling
-
+The ParticleFilter class' resample_particles() method handles resampling of 
+particles. In this function, we first extract the weights of each particle in the 
+cloud and put it in a list. We then use the function np.random.choice() to get our 
+resampling as it allows us to add the parameter of our weights list into it so 
+that the resampling would be weighted. A for loop then goes through the resampling 
+list and each resample index is replaced with a new Particle object with the same 
+parameters as the resampled particle in order to avoid concurrency issues. 
+The particle cloud is then set to the resample list.
 
 ### Step 5: Incorporation of Noise
-
+Incorporation of noise is handled both within the ParticleFilter class' 
+update_particle_weights_with_measurement_model() and the 
+update_particles_with_motion_model() methods. Within the measurement model, 
+noise is accounted for by utilizing the probability that a calculated distance 
+given a particle's position and the robot's scanning data. Within the motion 
+model, noise is added subtracting randomly generated values from the changes in 
+rotation and position of each particle. The first rotation noise aids in calculating 
+the new position values of the robot by simulating random turning before moving, 
+while a second rotation noise simulates the robot turning after stopping. Position 
+noise is used in order to account for early and late stopping of the robot.
 
 ### Step 6: Updating Estimated Robot Pose
-
+We use the ParticleFilter class' update_estimated_robot_pose() method in order 
+to update the robot's pose. The method creates a blank estimate of x, y, and 
+yaw as well as keeping a running total for sin and cos values. For each particle, 
+the x and y positions are added to the running totals, and cos and sin values of 
+the yaw are added to their respective fields. If yaw is less than zero, we add 
+2pi such that the angle ranges are from [0, 360) as opposed to (-180, 180). Lastly, 
+the average x and y value determine position, while the math.atan2 method takes 
+the average sin over average cos to calculate theta. This was inspired by 
+this post (https://stackoverflow.com/questions/491738/how-do-you-calculate-the-average-of-a-set-of-circular-data/491769#:~:text=return%20atan2%20(y_part%20/%20size%2C%20x_part%20/%20size). The robot pose is then set to these values.
 
 ### Step 7: Optimization of Parameters
-
+The optimization of parameters across the project was done for the most part 
+through experimentation. For example, the motion model's stdev values when 
+generating a random value were decided to be 0.05 for each rotation and 0.1 for 
+translation through visual fine tuning; larger values were seen to prevent late 
+convergence while smaller values would create little spread in particles and 
+and prevent convergence at all. The other important parameter chosen in this 
+project was the angles iterated over through in the measurement model. Because 
+iterating over all angles is costly, and angles outside of the LiDAR range are 
+unaccounted for, 8 evenly spaced angles allowed us to have equal contribution 
+from all important scans from the LiDAR and much faster runtime.
 
 ## Challenges
 TODO - (1 paragraph): Describe the challenges you faced and how you overcame them.
 
 ## Future Work
-TODO - (1 paragraph): If you had more time, how would you improve your particle filter 
-localization?
+Given more time, there are two major improvements that can be made to our particle 
+filter implementation. First, when updating weights with the measurement model, we 
+utilize a simplified version of the likelihood field which sets q = q * prob(dist, 
+sigma_hit). A more complex alternative would be to use q = q * (z_hit * 
+prob(dist, sigma_hit) + z_random/z_max), which accounts for all of measurement noise, 
+unexpected objects, failure to detect obstacles, and random measurements. Within updating particles 
+with the motion model, random samples are drawn from a Gaussian with mean 0 and 
+varying standard deviation. The robotics textbooks presents the sampling function 
+as a function of different alpha coefficients as well as different deltas on 
+different measurements (ie delta_hat of rot1 = rot1 - sample(a_1 * rot1 + a_2 * trans)). 
+Exploring less naive noise techniques should certainly improve the model's performance. 
 
 ## Takeaways
-TODO
+1. Pair programming through VSCode LiveShare is one of the most efficient ways 
+to work together. Because the code is always up to date on one computer that is 
+usually connected to the robot and merge conflicts through Git become nonexistent, 
+it becomes easy to work on separate parts of the codebase at once and very 
+little time gets wasted with this overhead.
 
-## Writeup
-- We call the initialize_particle_cloud function within the ParticleFilter class to initialize the particle cloud. In this function, we first want to get the width, height, and origin (x,y) values from our map. We then use these values and the random_sample() function to get a position with random x and y values and to get a random z_angular value for orientation. We initialize a Pose object with this position and orientation. We then create our particle object with this pose, set its weight to 1, and add it to our particle cloud list. After we get our particle cloud list (i.e. gone through the for loop), we normalize the particle weights so it sums to 1 with a helper function (normalize_particles()). In this function, we essentially divide each of the particle's weight by the total weight of all the particles in the particle cloud. Finally, after normalizing the particles, we publish it.
-
-- We call the update_particles_with_motion_model() function to handle the movement model. In this function, we essentially followed the sample motion model odometry referred in the textbook and from the professor in Slack. The robot in the time interval (t-1, t] rotates in about delta_rot1, translated by delta_trans, and rotates again by delta_rot2. We first get the current and the old x, y, and theta values from the odometry. We then set the delta as the difference between the current and old odometries' x, y, and theta values. We then calculate the delta_rot1, delta_trans, and delta_rot2 using the given formulas in the algorithm. We then account for noise by subtracting each of the deltas with a random sample value which we get by calling the random.normal function with a mean of 0 and a standard deviation of 0.1 for simplicity. For each of the particle, we update the theta by adding delta_rot1 and delta_rot2 to it and the x and y values by adding the delta_trans while multiplying by the cos and sin respecitvely of the particle's theta plus delta_rot1. 
-
-- We call the resample_particles() function to handle resampling the particles. In this function, we first extract the weights of each particle in the particle cloud and put it in a list. We then use the function np.random.choice() to get our resampling as it allows us to add the parameter of our weights list into it so that the resampling would be weighted. We added a for loop to go through the resample list and confirm to set its values from the resampling as we had some concurrency issues. We would then set the particle cloud to the resample list.
-
-- We call the update_estimated_robot_pose() function to handle updating estimated robot pose. In this function, we took the average of the x, y, and theta of each particle in the particle cloud to get the new estimated robot pose. For the x and y, the function would go through the particle cloud and sum up the x's and y's of each particle and then we would divide them by the number of particles. For theta, we would get the yaw of each particle and then sum up the sin's and cos's of each particle's yaw. We then took the arc tan of the average sin over the average cos to get our average theta (got idea from https://stackoverflow.com/questions/491738/how-do-you-calculate-the-average-of-a-set-of-circular-data/491769#:~:text=return%20atan2%20(y_part%20/%20size%2C%20x_part%20/%20size). We then set the new pose for the robot based off our calculated average x, y, and theta.
-
+2. Many debugging issues within this project may be the result of object 
+referencing schemes or math background both partners may not have a perfect grasp on. 
+One of our main issues pertained to unit testing in which all particles resample 
+to the same particle, and reweighting the particle resulted in the weight of 
+each particle decreasing as the loop continued as opposed to holding the 
+weight the same; this issue was the result of referencing the same object every 
+time throughout a method call. Our average angle dilemma needed to be solved 
+using sin and cos averages instead of flat angle averages, which wasn't intuitive 
+in the first place. The main idea is of this bullet point is that having a grasp 
+on outside-of-class topics rewards development speed vastly.

@@ -200,7 +200,6 @@ class ParticleFilter:
         self.robot_estimate_pub.publish(robot_pose_estimate_stamped)
 
 
-
     def resample_particles(self):
         #get weights list for resampling
         weights = []
@@ -212,8 +211,12 @@ class ParticleFilter:
         for i, par in enumerate(resample):
             resample[i] = Particle(par.pose, par.w)
         self.particle_cloud = resample
+<<<<<<< Updated upstream
         
 
+=======
+        #print("particle cloud after:", self.particle_cloud)
+>>>>>>> Stashed changes
 
 
     def robot_scan_received(self, data):
