@@ -135,11 +135,9 @@ class ParticleFilter:
 
         for i in range(self.num_particles):
             # Get Random Position
-            #x = (width * random_sample()) + x_origin
             x = ((self.x_bound[1] - self.x_bound[0]) * random_sample()) + self.x_bound[0]
             y = ((self.y_bound[1] - self.y_bound[0])  * random_sample()) + self.y_bound[0]
 
-            #y = (height * random_sample()) + y_origin
             # Get Random Orientation
             z_angular = (2 * np.pi) * random_sample()
             
@@ -165,7 +163,6 @@ class ParticleFilter:
         self.normalize_particles()
 
         self.publish_particle_cloud()
-        #print(self.particle_cloud[0].pose.position.x, self.particle_cloud[0].pose.position.y)
 
 
     def normalize_particles(self):
@@ -176,19 +173,12 @@ class ParticleFilter:
         for particle in self.particle_cloud:
             weight = particle.w
             total_weights += weight
-        #print(f"Total Weights: {total_weights}")
         
         sm = 0
         #go through particles and normalize weights
         for i, particle in enumerate(self.particle_cloud):
-            #print("working on particle:", particle)
-            #print("Particle weight before: ", self.particle_cloud[i].w)
             self.particle_cloud[i].w /= total_weights
-            #print("Particle weight after: ", self.particle_cloud[i].w)
-            sm += self.particle_cloud[i].w
         
-        #print("resample sum:", sm)
-
 
     def publish_particle_cloud(self):
 
@@ -212,17 +202,16 @@ class ParticleFilter:
 
 
     def resample_particles(self):
+        #get weights list for resampling
         weights = []
-        #print("particle cloud before:", self.particle_cloud)
         for p in self.particle_cloud:
             weights.append(p.w)
-        #print(f"weights: {weights} = {sum(weights)}")
 
         resample = np.random.choice(self.particle_cloud, len(self.particle_cloud), p=weights)
+        #ensure no concurrency issues 
         for i, par in enumerate(resample):
             resample[i] = Particle(par.pose, par.w)
         self.particle_cloud = resample
-        #print("particle cloud after:", self.particle_cloud)
         
 
 
@@ -301,8 +290,6 @@ class ParticleFilter:
 
     def update_estimated_robot_pose(self):
         # based on the particles within the particle cloud, update the robot pose estimate
-        # print("in update robot pose")
-        # self.robot_estimate
         x_estimate = 0
         y_estimate = 0
         z_angular_estimate = 0
@@ -319,7 +306,6 @@ class ParticleFilter:
                 yaw += (np.pi * 2)
             sin_total += math.sin(yaw)
             cos_total += math.cos(yaw)
-            # print(f"at {x_estimate}, {y_estimate} => yaw: {yaw}")
             
 
         x_estimate = x_estimate / len(self.particle_cloud)
@@ -327,9 +313,6 @@ class ParticleFilter:
         z_angular_estimate = math.atan2(sin_total / len(self.particle_cloud),
             cos_total / len(self.particle_cloud))
         
-
-        # print(f"Z-estimate: {z_angular_estimate}")
-
         pos = Point(x_estimate, y_estimate, 0)
         q = quaternion_from_euler(0.0, 0.0, z_angular_estimate)
         ori = Quaternion(q[0], q[1], q[2], q[3])
@@ -340,8 +323,6 @@ class ParticleFilter:
     
     def update_particle_weights_with_measurement_model(self, data):
         
-        # print("in measurement model")
-
         for i, particle in enumerate(self.particle_cloud):
             q = 1
             x = particle.pose.position.x
@@ -349,25 +330,22 @@ class ParticleFilter:
 
             theta = get_yaw_from_pose(particle.pose)
             
-            #print(particle)
-
             ztks = []
             dists = []
             probs = []
 
+            #which angles to check from ranges
             angles = [0, 44, 89, 134, 179, 224, 269, 314]
 
             if x < self.x_bound[0] or x > self.x_bound[1] or y < self.y_bound[0] or y > self.y_bound[1]:
-                # print(f"setting weight to 0")
                 self.particle_cloud[i].w = 0
                 continue
 
             for idx in angles:
                 ztk = data.ranges[idx]
-                # print("ztk:", ztk)
-                #print("type is ", type(ztk))
-                if (ztk <= data.range_max) and (ztk > 0): #may change to not equal instead
-                    # print("in cond")
+        
+                #ensure value is not inf or 0 for actual turtlebot
+                if (ztk <= data.range_max) and (ztk > 0):
                     ztks.append(idx)
                     rad_idx = math.radians(idx)
                     x_z_tk = x + (ztk * math.cos(theta + rad_idx))
@@ -382,10 +360,12 @@ class ParticleFilter:
 
     def update_particles_with_motion_model(self):
 
-        # print("in motion model")
         # based on the how the robot has moved (calculated from its odometry), we'll  move
         # all of the particles correspondingly
 
+        #following sample motion model odometry algorithm
+
+        #get delta from current and previous x, y, and theta
         curr_x = self.odom_pose.pose.position.x
         old_x = self.odom_pose_last_motion_update.pose.position.x
         curr_y = self.odom_pose.pose.position.y
@@ -400,6 +380,7 @@ class ParticleFilter:
         delta_rot2 = delta[2] - delta_rot1
 
         for i, particle in enumerate(self.particle_cloud):
+            #account for noise
             hat_delta_rot1 = delta_rot1 - np.random.normal(0, 0.05) 
             hat_delta_trans = delta_trans - np.random.normal(0, 0.1) 
             hat_delta_rot2 = delta_rot2 - np.random.normal(0, 0.05) 
@@ -425,8 +406,6 @@ class ParticleFilter:
 
             #update in particle cloud
             self.particle_cloud[i].pose = p
-
-            #print('particle_cloud:', self.particle_cloud)
 
 
 if __name__=="__main__":
