@@ -63,8 +63,12 @@ to allow the Turtlebot to determine its location with respect to its environment
 given its sensor readings and a map of the environment.
 
 ## High Level Description
-TODO - At a high-level, describe how you solved the problem of robot localization. 
-What are the main components of your approach?
+First we initialize the particle cloud by randoming sampling particles across our map.
+Then when we receive new scans, we essentially go through the process of going through our motion
+model to update the particles based off of the odometry from our scan, our measurement model to update the weights, 
+normalize the particles so that the weights sum up to 1, resample the particles with higher weight particles having priority, 
+updating the estimated robot's pose based off of the resampled particles, and then publishing our updated particle cloud
+and updated robot pose estimate. We repeat this process each time we get new scans.
 
 ## Demonstration
 ![](https://github.com/jchee1/particle_filter_project/blob/main/gifs/particle_filter_demo.gif)
@@ -164,7 +168,7 @@ unaccounted for, 8 evenly spaced angles allowed us to have equal contribution
 from all important scans from the LiDAR and much faster runtime.
 
 ## Challenges
-TODO - (1 paragraph): Describe the challenges you faced and how you overcame them.
+One challenge we had was when updating the robot estimated pose, we had trouble calculating the average theta. We intially tried to do the regular way of taking averages (i.e. taking sum of thetas and then dividing by the number of particles); however, there were edge cases that didn't work with this method. So what we instead did was sum up the sin's and cos's of each particle's yaw and took the arc tan of the average sin over the average cos. Another challenge was when incorporting our likelihood measurement model, we first tried to use all 360 degrees from the data.ranges list; however, this turned out to be very computationaly slow. What we instead did was picked which 8 angles to use corresponding to sections like front, front-left, left, right, etc.
 
 ## Future Work
 Given more time, there are two major improvements that can be made to our particle 
