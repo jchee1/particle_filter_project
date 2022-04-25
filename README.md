@@ -63,12 +63,14 @@ to allow the Turtlebot to determine its location with respect to its environment
 given its sensor readings and a map of the environment.
 
 ## High Level Description
-First we initialize the particle cloud by randoming sampling particles across our map.
-Then when we receive new scans, we essentially go through the process of going through our motion
-model to update the particles based off of the odometry from our scan, our measurement model to update the weights, 
-normalize the particles so that the weights sum up to 1, resample the particles with higher weight particles having priority, 
-updating the estimated robot's pose based off of the resampled particles, and then publishing our updated particle cloud
-and updated robot pose estimate. We repeat this process each time we get new scans.
+We first initialize the particle cloud by randomly sampling particles across our 
+map. When new scans are received, the motion model updates each particle based 
+off of the odometry of our scan as well as adding noise. The measurement model 
+then updates weights and normalizes such that the sum of all particle weights 
+is 1, and particles are then resampled with higher weight particles having 
+priority. The robot's pose is estimated to be the average of these resampled 
+particles, and this along with the new particle cloud is published. This process 
+is repeated until program close.
 
 ## Demonstration
 ![](https://github.com/jchee1/particle_filter_project/blob/main/gifs/particle_filter_demo.gif)
@@ -161,11 +163,17 @@ through experimentation. For example, the motion model's stdev values when
 generating a random value were decided to be 0.05 for each rotation and 0.1 for 
 translation through visual fine tuning; larger values were seen to prevent late 
 convergence while smaller values would create little spread in particles and 
-and prevent convergence at all. The other important parameter chosen in this 
+and prevent convergence at all. Another important parameter chosen in this 
 project was the angles iterated over through in the measurement model. Because 
 iterating over all angles is costly, and angles outside of the LiDAR range are 
 unaccounted for, 8 evenly spaced angles allowed us to have equal contribution 
-from all important scans from the LiDAR and much faster runtime.
+from all important scans from the LiDAR and much faster runtime. Lastly, the 
+number of particles began at 10000 however we are currently running our program 
+with 500 particles. This is because we are now able to restrict particles to the 
+map instead of the larger Rviz space, and it allowed for faster computation and 
+updates. 250 particles were also considered, however the sheer lack of points at 
+initialization resulted in the robot guessing incorrect but similar spots in 
+addition to there not being enough particles of matching orientation in the map.
 
 ## Challenges
 One challenge we had was when updating the robot estimated pose, we had trouble calculating the average theta. We intially tried to do the regular way of taking averages (i.e. taking sum of thetas and then dividing by the number of particles); however, there were edge cases that didn't work with this method. So what we instead did was sum up the sin's and cos's of each particle's yaw and took the arc tan of the average sin over the average cos. Another challenge was when incorporting our likelihood measurement model, we first tried to use all 360 degrees from the data.ranges list; however, this turned out to be very computationaly slow. What we instead did was picked which 8 angles to use corresponding to sections like front, front-left, left, right, etc.
